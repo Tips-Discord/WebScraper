@@ -4,9 +4,10 @@ import os
 import random
 import sys
 import validators
+import nltk; nltk.download('punkt')
 
 from bs4 import BeautifulSoup
-from colorama import init, Fore, Style
+from colorama import init, Fore, Style; init(autoreset=True)
 from fake_useragent import UserAgent
 from googlesearch import search
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -14,8 +15,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.text_rank import TextRankSummarizer
-
-init(autoreset=True)
 
 class WebScraperQA:
     def __init__(self):
@@ -25,7 +24,8 @@ class WebScraperQA:
         self.scraped_urls = set()
         self.ua = UserAgent()
         self.visited_count = 0
-        self.max_websites = 15
+        self.max_websites = 50
+        self.num_results=50
 
     def clear_screen(self):
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -53,7 +53,7 @@ class WebScraperQA:
         if meta_description and 'content' in meta_description.attrs:
             text = meta_description['content'] + " " + text
 
-        text = text + " " + soup.prettify()[:3500]
+        text = text + " " + soup.prettify()[:3000]
 
         return text
 
@@ -83,7 +83,7 @@ class WebScraperQA:
             text = self.extract_text(soup)
             self.add_document(text, url=url)
             self.visited_count += 1
-            sys.stdout.write(f"\rWebsties Visited: {self.visited_count}")
+            sys.stdout.write(f"\rVisited: {self.visited_count}")
             sys.stdout.flush()
 
     async def auto_scrape_and_learn(self, urls):
@@ -91,16 +91,16 @@ class WebScraperQA:
             tasks = [self.process_url(url, session) for url in urls[:self.max_websites]]
             await asyncio.gather(*tasks)
 
-    def search_and_learn(self, query, num_results=15):
+    def search_and_learn(self, query):
         try:
-            search_results = list(search(query, num_results=num_results))
+            search_results = list(search(query, num_results=self.num_results))
             asyncio.run(self.auto_scrape_and_learn(search_results))
         except Exception as e:
-            pass
+            print(Fore.RED + f"Error during search and learn: {e}")
 
     def answer_question(self, question):
         if not self.documents:
-            pass
+            print(Fore.YELLOW + "No data available to answer the question.")
             return "No relevant answer found."
         question_vector = self.vectorizer.transform([question])
         similarities = cosine_similarity(question_vector, self.doc_vectors).flatten()
@@ -112,6 +112,7 @@ class WebScraperQA:
 
 if __name__ == "__main__":
     qa_system = WebScraperQA()
+    qa_system.clear_screen()
     question = input("Question: ")
     qa_system.clear_screen()
     print(Fore.CYAN + f"Fixed Question: {question}\n")
