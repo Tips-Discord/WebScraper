@@ -34,7 +34,7 @@ Clone the repository or download the script directly:
 
 ```sh
 git clone https://github.com/Tips-Discord/WebScraper
-cd WebScraperQA
+cd WebScraper
 ```
 
 ## Usage
