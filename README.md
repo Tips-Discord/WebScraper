@@ -83,3 +83,7 @@ This project is licensed under the GNU General Public License v2.0.
 ## Contributions
 
 Contributions are welcome! Please fork the repository and submit a pull request with your improvements.
+
+## ⚠️ Disclaimer
+
+**DISCLAIMER:** This GitHub repository is intended for **EDUCATIONAL PURPOSES ONLY**. We take no responsibility if problems occur. By using this tool, you acknowledge and accept this disclaimer.
