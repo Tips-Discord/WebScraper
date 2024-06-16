@@ -66,6 +66,15 @@ Answering the question...
 Answer: The capital of France is Paris.
 ```
 
+## Star History
+
+<a href="https://star-history.com/#Tips-Discord/WebScraper&Timeline">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Tips-Discord/WebScraper&type=Timeline&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Tips-Discord/WebScraper&type=Timeline" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Tips-Discord/WebScraper&type=Timeline" />
+ </picture>
+</a>
 
 ## License
 
