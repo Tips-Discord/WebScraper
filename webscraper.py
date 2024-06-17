@@ -33,7 +33,7 @@ class WebScraperQA:
             if debug:
                 print(Fore.RED + f" Invalid url: {url}")
             return None
-            
+
         if not await self.is_allowed_by_robots_txt(url, session):
             if debug:
                 print(Fore.RED + f"Disallowed by robots.txt: {url}")
@@ -113,7 +113,7 @@ class WebScraperQA:
 
     def search_and_learn(self, query):
         try:
-            search_results = list(search(query, num_results=self.num_results))
+            search_results = list(search(query))[:self.num_results]
             asyncio.run(self.auto_scrape_and_learn(search_results))
         except Exception as e:
             if debug:
