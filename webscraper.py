@@ -8,11 +8,13 @@ from fake_useragent import UserAgent
 from googlesearch import search
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from urllib.parse import urlparse
 
 init(autoreset=True)
+debug = False
 
 class WebScraperQA:
-    def __init__(self, max_websites=25, num_results=25):
+    def __init__(self, max_websites=50, num_results=25):
         self.documents = []
         self.vectorizer = TfidfVectorizer(stop_words='english')
         self.doc_vectors = None
@@ -28,15 +30,46 @@ class WebScraperQA:
 
     async def scrape_website(self, url, session):
         if url in self.scraped_urls or not validators.url(url):
+            if debug:
+                print(Fore.RED + f" Invalid url: {url}")
             return None
+            
+        if not await self.is_allowed_by_robots_txt(url, session):
+            if debug:
+                print(Fore.RED + f"Disallowed by robots.txt: {url}")
+            return None
+
         try:
             headers = {'User-Agent': self.ua.random}
             async with session.get(url, headers=headers, timeout=20) as response:
                 response.raise_for_status()
                 self.scraped_urls.add(url)
+                if debug:
+                    print(Fore.GREEN + f"Scraped from: {url}")
                 return BeautifulSoup(await response.text(), 'html.parser')
-        except Exception:
+        except Exception as e:
+            if debug:
+                print(Fore.RED + f"Failed scraping from: {url}, error: {e}")
             return None
+
+    async def is_allowed_by_robots_txt(self, url, session):
+        parsed_url = urlparse(url)
+        robots_url = f"{parsed_url.scheme}://{parsed_url.netloc}/robots.txt"
+        try:
+            async with session.get(robots_url, headers={'User-Agent': self.ua.random}, timeout=10) as response:
+                if response.status == 200:
+                    content = await response.text()
+                    rules = [line.strip() for line in content.splitlines() if line.strip()]
+                    for rule in rules:
+                        if rule.lower().startswith('user-agent: *'):
+                            return True
+                        if rule.lower().startswith('disallow:'):
+                            disallowed_path = rule.split(':', 1)[1].strip()
+                            if parsed_url.path.startswith(disallowed_path):
+                                return False
+                    return True
+        except Exception:
+            return True
 
     @staticmethod
     def extract_text(soup):
@@ -69,8 +102,9 @@ class WebScraperQA:
         if soup:
             text = self.extract_text(soup)
             self.add_document(text)
-            self.visited_count += 1
-            print(f"\rScraped: {self.visited_count}", end='')
+            if not debug:
+                self.visited_count += 1
+                print(f"\rScraped: {self.visited_count}", end='')
 
     async def auto_scrape_and_learn(self, urls):
         async with aiohttp.ClientSession() as session:
@@ -82,10 +116,13 @@ class WebScraperQA:
             search_results = list(search(query, num_results=self.num_results))
             asyncio.run(self.auto_scrape_and_learn(search_results))
         except Exception as e:
-            print(Fore.RED + f"Error during search and learn: {e}")
+            if debug:
+                print(Fore.RED + f"Error during search and learn: {e}")
 
     def answer_question(self, question):
         if not self.documents:
+            if debug:
+                print(Fore.RED + "No Websites readed")
             return "No relevant answer found."
         question_vector = self.vectorizer.transform([question])
         similarities = cosine_similarity(question_vector, self.doc_vectors).flatten()
