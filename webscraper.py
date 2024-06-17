@@ -12,7 +12,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 init(autoreset=True)
 
 class WebScraperQA:
-    def __init__(self, max_websites=50, num_results=50):
+    def __init__(self, max_websites=25, num_results=25):
         self.documents = []
         self.vectorizer = TfidfVectorizer(stop_words='english')
         self.doc_vectors = None
@@ -31,7 +31,7 @@ class WebScraperQA:
             return None
         try:
             headers = {'User-Agent': self.ua.random}
-            async with session.get(url, headers=headers, timeout=10) as response:
+            async with session.get(url, headers=headers, timeout=20) as response:
                 response.raise_for_status()
                 self.scraped_urls.add(url)
                 return BeautifulSoup(await response.text(), 'html.parser')
