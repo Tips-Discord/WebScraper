@@ -99,12 +99,12 @@ if __name__ == "__main__":
     qa_system.clear_screen()
     question = input("Question: ")
     qa_system.clear_screen()
-    print(Fore.CYAN + f"Fixed Question: {question}\n")
+    print(Fore.CYAN + f"Question: {question}\n")
     print(Fore.GREEN + "Searching and learning...")
     qa_system.search_and_learn(question)
     print(Fore.GREEN + "\nAnswering the question...")
     answer = qa_system.answer_question(question)
-    if answer
+    if answer:
         print(Fore.BLUE + f"\nAnswer: {answer}")
     else:
-        print(Fore.RED + "No answer could be found.)
+        print(Fore.RED + "No answer could be found.")
