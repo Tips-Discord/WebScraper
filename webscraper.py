@@ -1,14 +1,15 @@
 import aiohttp
 import asyncio
 import os
-import validators
+import random
 from bs4 import BeautifulSoup
 from colorama import init, Fore
-from fake_useragent import UserAgent
 from googlesearch import search
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from urllib.parse import urlparse
+from datetime import datetime
+import validators
 
 init(autoreset=True)
 debug = False
@@ -19,20 +20,58 @@ class WebScraperQA:
         self.vectorizer = TfidfVectorizer(stop_words='english')
         self.doc_vectors = None
         self.scraped_urls = set()
-        self.ua = UserAgent()
-        self.visited_count = 0
         self.max_websites = max_websites
         self.num_results = num_results
+        self.visited_count = 0
+        self.tried_urls = 0
 
     @staticmethod
     def clear_screen():
         os.system('cls' if os.name == 'nt' else 'clear')
 
+    async def fetch(self, url, session, headers):
+        try:
+            async with session.get(url, headers=headers, timeout=20) as response:
+                response.raise_for_status()
+                return await response.text()
+        except aiohttp.ClientError as e:
+            if debug:
+                print(Fore.RED + f"HTTP error occurred while fetching {url}: {e}")
+            return None
+
+    def generate_random_headers(self):
+        user_agents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:89.0) Gecko/20100101 Firefox/89.0'
+        ]
+        accept_languages = [
+            'en-US,en;q=0.9',
+            'en-GB,en;q=0.9',
+            'en-CA,en;q=0.9',
+            'en-AU,en;q=0.9',
+            'en-NZ,en;q=0.9'
+        ]
+        headers = {
+            'User-Agent': random.choice(user_agents),
+            'Accept-Language': random.choice(accept_languages),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Referer': 'https://www.google.com',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'DNT': '1'
+        }
+        return headers
+
     async def scrape_website(self, url, session):
         if url in self.scraped_urls or not validators.url(url):
             if debug:
-                print(Fore.RED + f" Invalid url: {url}")
+                print(Fore.RED + f"Invalid or duplicate url: {url}")
             return None
+
+        self.tried_urls += 1
 
         if not await self.is_allowed_by_robots_txt(url, session):
             if debug:
@@ -40,13 +79,15 @@ class WebScraperQA:
             return None
 
         try:
-            headers = {'User-Agent': self.ua.random}
-            async with session.get(url, headers=headers, timeout=20) as response:
-                response.raise_for_status()
+            headers = self.generate_random_headers()
+            html = await self.fetch(url, session, headers)
+            if html:
                 self.scraped_urls.add(url)
                 if debug:
                     print(Fore.GREEN + f"Scraped from: {url}")
-                return BeautifulSoup(await response.text(), 'html.parser')
+                return BeautifulSoup(html, 'html.parser')
+            else:
+                return None
         except Exception as e:
             if debug:
                 print(Fore.RED + f"Failed scraping from: {url}, error: {e}")
@@ -56,18 +97,20 @@ class WebScraperQA:
         parsed_url = urlparse(url)
         robots_url = f"{parsed_url.scheme}://{parsed_url.netloc}/robots.txt"
         try:
-            async with session.get(robots_url, headers={'User-Agent': self.ua.random}, timeout=10) as response:
+            headers = self.generate_random_headers()
+            async with session.get(robots_url, headers=headers, timeout=10) as response:
                 if response.status == 200:
                     content = await response.text()
                     rules = [line.strip() for line in content.splitlines() if line.strip()]
+                    user_agent, allowed = '*', True
                     for rule in rules:
-                        if rule.lower().startswith('user-agent: *'):
-                            return True
-                        if rule.lower().startswith('disallow:'):
+                        if rule.lower().startswith('user-agent:'):
+                            user_agent = rule.split(':', 1)[1].strip()
+                        if user_agent == '*' and rule.lower().startswith('disallow:'):
                             disallowed_path = rule.split(':', 1)[1].strip()
                             if parsed_url.path.startswith(disallowed_path):
-                                return False
-                    return True
+                                allowed = False
+                    return allowed
         except Exception:
             return True
 
@@ -102,8 +145,8 @@ class WebScraperQA:
         if soup:
             text = self.extract_text(soup)
             self.add_document(text)
+            self.visited_count += 1
             if not debug:
-                self.visited_count += 1
                 print(f"\rScraped: {self.visited_count}", end='')
 
     async def auto_scrape_and_learn(self, urls):
@@ -113,7 +156,7 @@ class WebScraperQA:
 
     def search_and_learn(self, query):
         try:
-            search_results = list(search(query))[:self.num_results]
+            search_results = list(search(query, stop=self.num_results))
             asyncio.run(self.auto_scrape_and_learn(search_results))
         except Exception as e:
             if debug:
@@ -122,12 +165,12 @@ class WebScraperQA:
     def answer_question(self, question):
         if not self.documents:
             if debug:
-                print(Fore.RED + "No Websites readed")
+                print(Fore.RED + "No Websites read")
             return "No relevant answer found."
         question_vector = self.vectorizer.transform([question])
         similarities = cosine_similarity(question_vector, self.doc_vectors).flatten()
         most_similar_idx = similarities.argmax()
-        if similarities[most_similar_idx] > 0.09:
+        if similarities[most_similar_idx] > 0.3:
             return self.documents[most_similar_idx]
         return "No relevant answer found."
 
@@ -145,3 +188,5 @@ if __name__ == "__main__":
         print(Fore.BLUE + f"\nAnswer: {answer}")
     else:
         print(Fore.RED + "No answer could be found.")
+    print(Fore.CYAN + f"\nTried URLs: {qa_system.tried_urls}")
+    print(Fore.CYAN + f"\nProcessed URLs: {qa_system.visited_count}")
