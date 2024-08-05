@@ -87,3 +87,6 @@ Contributions are welcome! Please fork the repository and submit a pull request 
 ## ⚠️ Disclaimer
 
 **DISCLAIMER:** This GitHub repository is intended for **EDUCATIONAL PURPOSES ONLY**. We take no responsibility if problems occur. By using this tool, you acknowledge and accept this disclaimer.
+
+
+### ```the readme is made by ai lol```
